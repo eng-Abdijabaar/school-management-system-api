@@ -1,0 +1,70 @@
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
+import { generateId } from "../utils/generateId.js";
+
+const teacherSchema = new mongoose.Schema({
+    name: {
+        type: String,
+        required: true,
+    },
+    email: {
+        type: String,
+        unique: true,
+        required: true,
+    },
+    teacherId: {
+        type: String,
+        required: true,
+        unique: true,
+    },
+    phone: {
+        type: Number,
+        required: true,
+        unique: true,
+    },
+    profile_img: {
+        type: String,
+        // required: true,
+    },
+    documents: {
+        type: [String],
+       // required: true,
+    },
+    isActive: {
+        type: Boolean,
+        default: true,
+    },              
+    password: {
+        type: String,
+        required: true,
+    },
+}, { timestamps: true });
+
+teacherSchema.pre('validate', async function () {
+  try {
+    if (!this.teacherId) {
+      this.teacherId = await generateId({
+        type: "teacherId",
+        prefix: "TCH"
+      });
+    }
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+// hash the password before saving the teacher
+teacherSchema.pre("save", async function () {
+    if (!this.isModified("password")) return ;
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+});
+
+// method to compare the password
+teacherSchema.methods.matchPassword = async function (enteredPassword) {
+    return await bcrypt.compare(enteredPassword, this.password);
+};
+
+const Teacher = mongoose.model("Teacher", teacherSchema);
+
+export default Teacher;
