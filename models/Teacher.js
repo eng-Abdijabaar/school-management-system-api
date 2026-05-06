@@ -17,6 +17,10 @@ const teacherSchema = new mongoose.Schema({
         required: true,
         unique: true,
     },
+    section: {
+        type: String,
+        required: true,
+    },
     phone: {
         type: Number,
         required: true,
@@ -29,6 +33,10 @@ const teacherSchema = new mongoose.Schema({
     documents: {
         type: [String],
        // required: true,
+    },
+    salary: {
+        type: Number,
+        required: true,
     },
     isActive: {
         type: Boolean,
@@ -49,7 +57,7 @@ teacherSchema.pre('validate', async function () {
       });
     }
   } catch (error) {
-    throw new Error(error);
+    throw new Error("Error generating teacher ID: " + error.message);
   }
 });
 

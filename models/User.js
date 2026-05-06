@@ -25,6 +25,9 @@ const userSchema = new mongoose.Schema({
         type: [String],
         // required: true,
     },
+    salary: {
+        type: Number,
+    },
     isActive: {
         type: Boolean,
         default: true,

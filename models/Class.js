@@ -9,16 +9,6 @@ const classSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
-    subject: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Subject",
-        required: true,
-    }],
-    teacher: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Teacher",
-        required: true,
-    }],
     students: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Student",
@@ -29,7 +19,7 @@ const classSchema = new mongoose.Schema({
     },
     isActive: {
         type: Boolean,
-        default: false
+        default: true,
     },
 }, { timestamps: true });
 

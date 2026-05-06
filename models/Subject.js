@@ -20,14 +20,9 @@ const subjectSchema = new mongoose.Schema({
         default: "",
     },
 
-    teacher: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Teacher", 
-    },
-
-    class: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Class",
+    section: {
+        type: String,
+        required: true,
     },
 
     weeklySessions: {
@@ -40,6 +35,20 @@ const subjectSchema = new mongoose.Schema({
         default: true,
     },
 }, { timestamps: true });
+
+
+subjectSchema.pre('validate', async function () {
+  try {
+    if (!this.code) {
+      this.code = await generateId({
+        type: "subjectId",
+        prefix: "SUB"
+      });
+    }
+  } catch (error) {
+    throw new Error("Error generating subject code: " + error.message);
+  }
+});
 
 const Subject = mongoose.model("Subject", subjectSchema);
 export default Subject;

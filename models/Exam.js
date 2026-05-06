@@ -10,6 +10,10 @@ const examSchema = new mongoose.Schema({
         ref: "Subject",
         required: true,
     },
+    section: {
+        type: String,
+        required: true,
+    },
     class: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Class",

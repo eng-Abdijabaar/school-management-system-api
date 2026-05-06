@@ -10,11 +10,16 @@ const studentSchema = new mongoose.Schema({
     email: {
         type: String,
         unique: true,
+        sparse: true,
     },
     studentId: {
         type: String,
         required: true,
         unique: true,
+    },
+    section: {
+        type: String,
+        required: true,
     },
     phone: {
         type: Number,
@@ -24,7 +29,6 @@ const studentSchema = new mongoose.Schema({
     parent_number: {
         type: Number,
         required: true,
-        unique: true,
     },
     profile_img: {
         type: String,
@@ -42,18 +46,17 @@ const studentSchema = new mongoose.Schema({
     },
 }, { timestamps: true });
 
-studentSchema.pre('save', async function (next) {
-  try {
-    if (!this.studentId) {
-      this.studentId = await generateId({
-        type: "studentId",
-        prefix: "STU"
-      });
+studentSchema.pre('validate', async function (next) {
+    try {
+        if (!this.studentId) {
+            this.studentId = await generateId({
+                type: "studentId",
+                prefix: "STU"
+            });
+        }
+    } catch (error) {
+        throw new Error("Error generating student ID: " + error.message);
     }
-    next();
-  } catch (error) {
-    next(error);
-  }
 });
 
 const Student = mongoose.model("Student", studentSchema);
