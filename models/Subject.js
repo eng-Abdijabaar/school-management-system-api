@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { generateId } from "../utils/generateId.js";
 
 const subjectSchema = new mongoose.Schema({
     name: {

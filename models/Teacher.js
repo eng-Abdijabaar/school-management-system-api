@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { generateId } from "../utils/generateId.js";
+import crypto from "crypto";
+
 
 const teacherSchema = new mongoose.Schema({
     name: {
@@ -16,10 +18,6 @@ const teacherSchema = new mongoose.Schema({
         type: String,
         required: true,
         unique: true,
-    },
-    section: {
-        type: String,
-        required: true,
     },
     phone: {
         type: Number,
@@ -46,6 +44,8 @@ const teacherSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
+    resetPasswordToken: String,
+    resetPasswordTokenExpire: Date,
 }, { timestamps: true });
 
 teacherSchema.pre('validate', async function () {
@@ -72,6 +72,19 @@ teacherSchema.pre("save", async function () {
 teacherSchema.methods.matchPassword = async function (enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };
+
+
+// Generate a Password Reset Token
+teacherSchema.methods.getResetPasswordToken = function () {
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    this.resetPasswordToken = crypto
+        .createHash('sha256')
+        .update(resetToken)
+        .digest('hex');
+    this.resetPasswordTokenExpire = Date.now() + 10 * 60 * 1000;
+    return resetToken;
+};
+
 
 const Teacher = mongoose.model("Teacher", teacherSchema);
 

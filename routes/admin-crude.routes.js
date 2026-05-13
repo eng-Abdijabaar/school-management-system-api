@@ -26,9 +26,14 @@ import {
     getSubjects, 
     updateSubject, 
     deleteSubject, 
-    getSubjectById
+    getSubjectById,
+    getStudentsBySection,
+    getClassesBySection,
+    getSubjectsBySection,
+    assignSubject,
+    removeSubject
 } from "../controllers/admin-crude.controller.js";
-import adminAuthMiddleware from "../middleware/adminAuthMiddleware.js";
+import {adminAuthMiddleware} from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -43,6 +48,7 @@ router.get("/getInactiveTeachers", adminAuthMiddleware, getInactiveTeachers);
 router.post("/createStudent", adminAuthMiddleware, createStudent);
 router.get("/getStudents", adminAuthMiddleware, getStudents);
 router.get("/getStudentById/:id", adminAuthMiddleware, getStudentById);
+router.get("/getStudentsBySection/:section", adminAuthMiddleware, getStudentsBySection);
 router.delete("/deleteStudent/:id", adminAuthMiddleware, deleteStudent);
 router.put("/updateStudent/:id", adminAuthMiddleware, updateStudent);
 router.get("/getActiveStudents", adminAuthMiddleware, getActiveStudents);
@@ -56,12 +62,16 @@ router.delete("/deleteClass/:id", adminAuthMiddleware, deleteClass);
 router.get("/getActiveClasses", adminAuthMiddleware, getActiveClasses);
 router.get("/getInactiveClasses", adminAuthMiddleware, getInactiveClasses);
 router.get("/getClassById/:id", adminAuthMiddleware, getClassById);
+router.get("/getClassesBySection/:id", adminAuthMiddleware, getClassesBySection);
+router.post("/assignSubject", adminAuthMiddleware, assignSubject);
+router.post("/removeSubject", adminAuthMiddleware, removeSubject)
 
 router.post("/createSubject", adminAuthMiddleware, createSubject);
 router.get("/getSubjects", adminAuthMiddleware, getSubjects);
 router.put("/updateSubject/:id", adminAuthMiddleware, updateSubject);
 router.delete("/deleteSubject/:id", adminAuthMiddleware, deleteSubject);
 router.get("/getSubjectById/:id", adminAuthMiddleware, getSubjectById);
+router.get("/getSubjectsBySection/:section", adminAuthMiddleware, getSubjectsBySection)
 
 export default router;
 

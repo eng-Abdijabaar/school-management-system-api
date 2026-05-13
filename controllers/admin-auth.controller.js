@@ -174,7 +174,7 @@ export const verifyEmail = asyncHandler(async (req, res) => {
 // @access Public
 export const forgotPassword = asyncHandler(async (req, res) => {
   const { email, phone } = req.body;
-  if (!email || !phone) {
+  if (!email && !phone) {
     res.status(400);
     throw new Error('Please provide email or phone');
   }

@@ -16,6 +16,11 @@ const classSchema = new mongoose.Schema({
     }],
     room_number: {
         type: Number,
+        required: true
+    },
+    capacity: {
+        type: Number,
+        required: true
     },
     isActive: {
         type: Boolean,
