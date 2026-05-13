@@ -1,6 +1,6 @@
 import express from 'express';
 import { register, login, verifyEmail, forgotPassword, resetPassword, logout, refreshAccessToken } from '../controllers/admin-auth.controller.js';
-import adminAuthMiddleware from '../middleware/adminAuthMiddleware.js';
+import {adminAuthMiddleware} from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 

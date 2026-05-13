@@ -30,12 +30,18 @@ const studentSchema = new mongoose.Schema({
         type: Number,
         required: true,
     },
+    grade: {
+        type: Number,
+        required: true
+    },
     profile_img: {
-        type: String,
+        public_id: String,
+        url: String
     },
-    documents: {
-        type: [String],
-    },
+    documents: [{
+        public_id: String,
+        url: String
+    }],
     isActive: {
         type: Boolean,
         default: true,

@@ -5,6 +5,8 @@ import dotenv from "dotenv";
 import adminAuthRoutes from './routes/admin-auth.routes.js';
 import cookieParser from 'cookie-parser';
 import adminCrudeRoutes from './routes/admin-crude.routes.js';
+import teacherAuthRoutes from './routes/teacher-auth.routes.js'
+import teacherCrudeRoutes from './routes/teacher-crude.routes.js'
 
 dotenv.config();
 
@@ -22,9 +24,14 @@ app.use(cookieParser());
 app.get('/', (req, res) => {
     res.send('Welcome to the School Dashboard API');
 });
+
 // Admin routes
 app.use('/api/auth', adminAuthRoutes);
 app.use('/api/admin', adminCrudeRoutes);
+
+// teacher routes
+app.use('/api/auth/teacher', teacherAuthRoutes);
+app.use('/api/teacher', teacherCrudeRoutes);
 
 // Start the server
 const PORT = process.env.PORT || 3000;

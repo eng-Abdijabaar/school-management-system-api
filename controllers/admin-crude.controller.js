@@ -9,11 +9,12 @@ import Subject from "../models/Subject.js";
 // @route   POST /api/admin/createTeacher
 // @access  Private (Admin)
 export const createTeacher = asyncHandler(async (req, res) => {
-    const { name, email, phone, password } = req.body;
+    const { name, email, phone, salary, password } = req.body;
 
     // Validate input
-    if (!name || !email || !phone || !password) {
-        return res.status(400).json({ message: "All fields are required" });
+    if (!name || !email || !phone || !password || !salary) {
+        res.status(400);
+        throw new Error("all feilds are required")
     }
 
     // Check if teacher already exists
@@ -26,11 +27,22 @@ export const createTeacher = asyncHandler(async (req, res) => {
         name,
         email,
         phone,
+        salary,
         password,
     });
 
     await teacher.save();
-    res.status(201).json({ message: "Teacher created successfully", data: teacher });
+    res.status(201).json({ message: "Teacher created successfully", data: {
+        name: teacher.name,
+        email:teacher.email,
+        phone:teacher.phone,
+        documents:teacher.documents,
+        salary: teacher.salary,
+        isActive: teacher.isActive,
+        _id: teacher._id,
+        teacherId: teacher.teacherId,
+        createdAt: teacher.createdAt
+    } });
 });
 
 // @desc    Get all teachers
@@ -73,23 +85,27 @@ export const deleteTeacher = asyncHandler(async (req, res) => {
 // @access  Private (Admin)
 export const updateTeacher = asyncHandler(async (req, res) => {
     // update only the fields that are provided in the request body
-    const teacher = await Teacher.findOne({ teacherId: req.params.id });
+    const teacher = await Teacher.findOne({ teacherId: req.params.id }).select("-password");
     if (!teacher) {
         return res.status(404).json({ message: "Teacher not found" });
     }
 
-    const { name, email, phone, profile_img, documents, isActive, password } = req.body;
+    const { name, email, phone, salary, profile_img, documents, isActive, password } = req.body;
 
     if (name) teacher.name = name;
     if (email) teacher.email = email;
     if (phone) teacher.phone = phone;
+    if (salary) teacher.salary = salary;
     if (password) teacher.password = password;
     if (profile_img) teacher.profile_img = profile_img;
     if (documents) teacher.documents = documents;
     if (isActive !== undefined) teacher.isActive = isActive;
 
     await teacher.save();
-    res.status(200).json({ message: "Teacher updated successfully", teacher });
+    res.status(200).json({
+        message: "Teacher updated successfully", 
+        data: teacher
+    });
 });
 
 // @desc    Get all active teachers
@@ -118,12 +134,12 @@ export const getInactiveTeachers = asyncHandler(async (req, res) => {
 // @route   POST /api/admin/createStudent
 // @access  Private (Admin)
 export const createStudent = asyncHandler(async (req, res) => {
-    const { name, email, phone, parent_number, password } = req.body;
+    const { name, email, phone, parent_number, section, password } = req.body;
 
     // Validate input email is not required for student but other fields are required
-    if (!name || !phone || !parent_number || !password) {
+    if (!name || !phone || !parent_number || !section || !password) {
         res.status(400);
-        throw new Error("Name, phone, parent number, and password are required");
+        throw new Error("Name, phone, parent number, section, and password are required");
     }
 
     // Check if student already exists
@@ -137,6 +153,7 @@ export const createStudent = asyncHandler(async (req, res) => {
         name,
         phone,
         parent_number,
+        section,
         password,
     });
 
@@ -153,6 +170,7 @@ export const createStudent = asyncHandler(async (req, res) => {
             studentId: student.studentId,
             phone: student.phone,
             parent_number: student.parent_number,
+            section,
             isActive: student.isActive,
         }
     });
@@ -180,6 +198,28 @@ export const getStudentById = asyncHandler(async (req, res) => {
     res.status(200).json({ message: "Student retrieved successfully", data: student });
 });
 
+// @desc    Get students by section
+// @route   GET /api/admin/getStudentsBySection/:section
+// @access  Private (Admin)
+export const getStudentsBySection = asyncHandler(async (req, res) => {
+    const { section } = req.params;
+
+    const students = await Student.find({ section })
+        .select('-password')
+        .lean();
+
+    if (students.length === 0) {
+        res.status(404);
+        throw new Error('No students found for this section');
+    }
+
+    res.status(200).json({
+        success: true,
+        message: `Students retrieved successfully for section ${section}`,
+        data: students,
+    });
+});
+
 // @desc    Delete a student by ID
 // @route   DELETE /api/admin/deleteStudent/:id
 // @access  Private (Admin)
@@ -201,12 +241,13 @@ export const updateStudent = asyncHandler(async (req, res) => {
         return res.status(404).json({ message: "Student not found" });
     }
 
-    const { name, email, phone, parent_number, profile_img, documents, isActive, password } = req.body;
+    const { name, email, phone, parent_number, section, profile_img, documents, isActive, password } = req.body;
 
     if (name) student.name = name;
     if (email) student.email = email;
     if (phone) student.phone = phone;
     if (parent_number) student.parent_number = parent_number;
+    if (section) student.section = section;
     if (profile_img) student.profile_img = profile_img;
     if (documents) student.documents = documents;
     if (isActive !== undefined) student.isActive = isActive;
@@ -259,21 +300,28 @@ export const getStudentPassword = asyncHandler(async (req, res) => {
 // @route POST /api/admin/createClass
 // @access Private (Admin)
 export const createClass = asyncHandler(async (req, res) => {
-    const { class_name, section, room_number } = req.body;
+    const { class_name, section, room_number, capacity, students = [] } = req.body;
 
     // Validate input
-    if (!class_name || !section || !room_number) {
-        return res.status(400).json({ message: "Class name, section, and room number are required" });
+    if (!class_name || !section || !room_number || !capacity) {
+        res.status(400);
+        throw new Error('Class name, section, room number, and capacity are required');
     }
 
-    const newClass = new Class({
+    // Create class
+    const newClass = await Class.create({
         class_name,
         section,
         room_number,
+        capacity,
+        students,
     });
 
-    await newClass.save();
-    res.status(201).json({ message: "Class created successfully", data: newClass });
+    res.status(201).json({
+        success: true,
+        message: 'Class created successfully',
+        data: newClass,
+    });
 });
 
 // @desc Get all classes
@@ -388,19 +436,45 @@ export const getClassById = asyncHandler(async (req, res) => {
     });
 });
 
+// @desc    Get classes by section
+// @route   GET /api/admin/getClassesBySection/:section
+// @access  Private (Admin)
+export const getClassesBySection = asyncHandler(async (req, res) => {
+    const { section } = req.params;
+
+    const classes = await Class.find({ section }).lean();
+
+    if (classes.length === 0) {
+        res.status(404);
+        throw new Error('No classes found for this section');
+    }
+
+    res.status(200).json({
+        success: true,
+        message: `classes retrieved successfully for section ${section}`,
+        data: classes,
+    });
+});
+
+// @desc Remove student from a class
+// @route put /api/admin/removeStudent/:id
+// @access Private (Admin)
+export const removeStudent = asyncHandler(async (req, res) => { });
+
 // @desc Create a new subject
 // @route POST /api/admin/createSubject
 // @access Private (Admin)
 export const createSubject = asyncHandler(async (req, res) => {
-    const { name, description, weeklySessions } = req.body;
-    if (!name) {
-        return res.status(400);
-        throw new Error("Subject name is required");
+    const { name, description, section, weeklySessions } = req.body;
+    if (!name || !section || !weeklySessions) {
+        res.status(400);
+        throw new Error("all fields are required");
     }
 
     const createdSubject = new Subject({
         name,
         description,
+        section,
         weeklySessions,
     });
     await createdSubject.save();
@@ -423,14 +497,16 @@ export const getSubjects = asyncHandler(async (req, res) => {
 // @route PUT /api/admin/updateSubject/:id
 // @access Private (Admin)
 export const updateSubject = asyncHandler(async (req, res) => {
-    const { name, description, weeklySessions } = req.body;
+    const { name, description, section, weeklySessions } = req.body;
     const subjectToUpdate = await Subject.findById(req.params.id);
     if (!subjectToUpdate) {
         return res.status(404).json({ message: "Subject not found" });
     }
-    subjectToUpdate.name = name || subjectToUpdate.name;
-    subjectToUpdate.description = description || subjectToUpdate.description;
-    subjectToUpdate.weeklySessions = weeklySessions || subjectToUpdate.weeklySessions;
+    if (name) subjectToUpdate.name = name
+    if (description) subjectToUpdate.description = description
+    if (section) subjectToUpdate.section = section
+    if (weeklySessions) subjectToUpdate.weeklySessions = weeklySessions
+
     await subjectToUpdate.save();
     res.status(200).json({ message: "Subject updated successfully", data: subjectToUpdate });
 });
@@ -454,7 +530,7 @@ export const getSubjectById = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const subject = await Subject.findById(id);
     if (!subject) {
-        return res.status(404);
+        res.status(404);
         throw new Error("Subject not found");
     }
 
@@ -493,6 +569,26 @@ export const getSubjectById = asyncHandler(async (req, res) => {
     });
 });
 
+// @desc    Get subjects by section
+// @route   GET /api/admin/getSubjectsBySection/:section
+// @access  Private (Admin)
+export const getSubjectsBySection = asyncHandler(async (req, res) => {
+    const { section } = req.params;
+
+    const subjects = await Subject.find({ section }).lean();
+
+    if (subjects.length === 0) {
+        res.status(404);
+        throw new Error('No subjects found for this section');
+    }
+
+    res.status(200).json({
+        success: true,
+        message: `subjects retrieved successfully for section ${section}`,
+        data: subjects,
+    });
+});
+
 // @desc Assign a subject to a class with a teacher
 // @route POST /api/admin/assignSubject
 // @access Private (Admin)
@@ -515,10 +611,8 @@ export const removeSubject = asyncHandler(async (req, res) => {
     const subjectToRemove = await TeachingAssignment.findOne({ classId, subjectId });
     if (!subjectToRemove) {
         return res.status(404);
-        throw new Error("Subject assignment not found for this class");
+        throw new Error("Subject is not found for this class");
     }
     await subjectToRemove.deleteOne();
     res.status(200).json({ message: "Subject removed from class successfully", data: subjectToRemove });
 });
-
-//
