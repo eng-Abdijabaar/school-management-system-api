@@ -4,6 +4,7 @@ import Student from "../models/Student.js";
 import TeachingAssignment from "../models/TeachingAssignments.js";
 import Class from "../models/Class.js";
 import Subject from "../models/Subject.js";
+import Exam from "../models/Exam.js";
 
 // @desc    Create a new teacher
 // @route   POST /api/admin/createTeacher
@@ -32,17 +33,19 @@ export const createTeacher = asyncHandler(async (req, res) => {
     });
 
     await teacher.save();
-    res.status(201).json({ message: "Teacher created successfully", data: {
-        name: teacher.name,
-        email:teacher.email,
-        phone:teacher.phone,
-        documents:teacher.documents,
-        salary: teacher.salary,
-        isActive: teacher.isActive,
-        _id: teacher._id,
-        teacherId: teacher.teacherId,
-        createdAt: teacher.createdAt
-    } });
+    res.status(201).json({
+        message: "Teacher created successfully", data: {
+            name: teacher.name,
+            email: teacher.email,
+            phone: teacher.phone,
+            documents: teacher.documents,
+            salary: teacher.salary,
+            isActive: teacher.isActive,
+            _id: teacher._id,
+            teacherId: teacher.teacherId,
+            createdAt: teacher.createdAt
+        }
+    });
 });
 
 // @desc    Get all teachers
@@ -103,7 +106,7 @@ export const updateTeacher = asyncHandler(async (req, res) => {
 
     await teacher.save();
     res.status(200).json({
-        message: "Teacher updated successfully", 
+        message: "Teacher updated successfully",
         data: teacher
     });
 });
@@ -300,12 +303,12 @@ export const getStudentPassword = asyncHandler(async (req, res) => {
 // @route POST /api/admin/createClass
 // @access Private (Admin)
 export const createClass = asyncHandler(async (req, res) => {
-    const { class_name, section, room_number, capacity, students = [] } = req.body;
+    const { class_name, section, room_number, grade, capacity, students = [] } = req.body;
 
     // Validate input
-    if (!class_name || !section || !room_number || !capacity) {
+    if (!class_name || !section || !room_number || !grade || !capacity) {
         res.status(400);
-        throw new Error('Class name, section, room number, and capacity are required');
+        throw new Error('Class name, section, room number, grade, and capacity are required');
     }
 
     // Create class
@@ -314,6 +317,7 @@ export const createClass = asyncHandler(async (req, res) => {
         section,
         room_number,
         capacity,
+        grade,
         students,
     });
 
@@ -344,11 +348,12 @@ export const updateClass = asyncHandler(async (req, res) => {
         return res.status(404).json({ message: "Class not found" });
     }
 
-    const { class_name, section, room_number, isActive } = req.body;
+    const { class_name, section, room_number, grade, isActive } = req.body;
 
     if (class_name) classToUpdate.class_name = class_name;
     if (section) classToUpdate.section = section;
     if (room_number) classToUpdate.room_number = room_number;
+    if (grade) classToUpdate.grade = grade;
     if (isActive !== undefined) classToUpdate.isActive = isActive;
 
     await classToUpdate.save();
@@ -616,3 +621,612 @@ export const removeSubject = asyncHandler(async (req, res) => {
     await subjectToRemove.deleteOne();
     res.status(200).json({ message: "Subject removed from class successfully", data: subjectToRemove });
 });
+
+// @desc Get all attendance records
+// @route GET /api/admin/getAllAttendance
+// @access Private (Admin)
+export const getAllAttendance = asyncHandler(async (req, res) => {
+
+    const attendance = await Attendance.find()
+        .populate({
+            path: 'class',
+            select: 'class_name section room_number',
+        })
+        .populate({
+            path: 'subject',
+            select: 'name code',
+        })
+        .populate({
+            path: 'teacher',
+            select: 'name email',
+        })
+        .sort({ createdAt: -1 })
+        .lean();
+
+    if (attendance.length === 0) {
+        res.status(404);
+        throw new Error('No attendance records found');
+    }
+
+    res.status(200).json({
+        success: true,
+        message: 'Attendance records retrieved successfully',
+        data: attendance,
+    });
+});
+
+// @desc Get attendance by date range
+// @route GET /api/admin/getAttendanceByDateRange
+// @access Private (Admin)
+export const getAttendanceByDateRange = asyncHandler(async (req, res) => {
+
+    const { startDate, endDate } = req.query;
+
+    // Validate input
+    if (!startDate || !endDate) {
+        res.status(400);
+        throw new Error('Start date and end date are required');
+    }
+
+    // Parse dates
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    // Validate dates
+    if (
+        isNaN(start.getTime()) ||
+        isNaN(end.getTime())
+    ) {
+        res.status(400);
+        throw new Error('Invalid date format');
+    }
+
+    // Set time boundaries
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+
+    // Ensure startDate <= endDate
+    if (start > end) {
+        res.status(400);
+        throw new Error('Start date cannot be greater than end date');
+    }
+
+    const attendance = await Attendance.find({
+        date: {
+            $gte: start,
+            $lte: end,
+        },
+    })
+        .populate({
+            path: 'class',
+            select: 'class_name section room_number',
+        })
+        .populate({
+            path: 'subject',
+            select: 'name code',
+        })
+        .populate({
+            path: 'teacher',
+            select: 'name email',
+        })
+        .sort({ date: 1 }) // oldest → newest
+        .lean();
+
+    if (attendance.length === 0) {
+        res.status(404);
+        throw new Error('No attendance records found in this date range');
+    }
+
+    res.status(200).json({
+        success: true,
+        results: attendance.length,
+        data: attendance,
+    });
+});
+
+// @desc Get attendance by teacher
+// @route GET /api/admin/getAttendanceByTeacher/:teacherId
+// @access Private (Admin)
+export const getAttendanceByTeacher = asyncHandler(async (req, res) => {
+    const { teacherId } = req.params;
+    const attendance = await Attendance.find({ teacher: teacherId })
+        .populate({
+            path: 'class',
+            select: 'class_name section room_number',
+        })
+        .populate({
+            path: 'subject',
+            select: 'name code',
+        })
+        .populate({
+            path: 'teacher',
+            select: 'name email teacherId',
+        })
+        .sort({ createdAt: -1 })
+        .lean();
+
+    if (attendance.length === 0) {
+        res.status(404);
+        throw new Error('No attendance records found for this teacher');
+    }
+
+    res.status(200).json({
+        success: true,
+        message: 'Attendance records retrieved successfully',
+        data: attendance,
+    });
+});
+
+// @desc Get attendance by student
+// @route GET /api/admin/getAttendanceByStudent/:studentId
+// @access Private (Admin)
+export const getAttendanceByStudent = asyncHandler(async (req, res) => {
+
+    const { studentId } = req.params;
+
+    const attendance = await Attendance.find({
+        'records.student': studentId,
+    })
+        .populate({
+            path: 'class',
+            select: 'class_name section room_number',
+        })
+        .populate({
+            path: 'subject',
+            select: 'name code',
+        })
+        .populate({
+            path: 'teacher',
+            select: 'name email teacherId',
+        })
+        .sort({ createdAt: -1 })
+        .lean();
+
+    if (attendance.length === 0) {
+        res.status(404);
+        throw new Error(
+            'No attendance records found for this student'
+        );
+    }
+
+    res.status(200).json({
+        success: true,
+        message: 'Attendance records retrieved successfully',
+        data: attendance,
+    });
+});
+
+// @desc Get attendance by class
+// @route GET /api/admin/getAttendanceByClass/:classId
+// @access Private (Admin)
+export const getAttendanceByClass = asyncHandler(async (req, res) => {
+    const { classId } = req.params;
+    const attendance = await Attendance.find({ class: classId })
+        .populate({
+            path: 'class',
+            select: 'class_name section room_number',
+        })
+        .populate({
+            path: 'subject',
+            select: 'name code',
+        })
+        .populate({
+            path: 'teacher',
+            select: 'name email teacherId',
+        })
+        .sort({ createdAt: -1 })
+        .lean();
+
+    if (attendance.length === 0) {
+        res.status(404);
+        throw new Error('No attendance records found for this class');
+    }
+
+    res.status(200).json({
+        success: true,
+        message: 'Attendance records retrieved successfully',
+        data: attendance,
+    });
+});
+
+// @desc Get attendance by subject
+// @route GET /api/admin/getAttendanceBySubject/:subjectId
+// @access Private (Admin)
+export const getAttendanceBySubject = asyncHandler(async (req, res) => {
+    const { subjectId } = req.params;
+    const attendance = await Attendance.find({ subject: subjectId })
+        .populate({
+            path: 'class',
+            select: 'class_name section room_number',
+        })
+        .populate({
+            path: 'subject',
+            select: 'name code',
+        })
+        .populate({
+            path: 'teacher',
+            select: 'name email teacherId',
+        })
+        .sort({ createdAt: -1 })
+        .lean();
+
+    if (attendance.length === 0) {
+        res.status(404);
+        throw new Error('No attendance records found for this subject');
+    }
+
+    res.status(200).json({
+        success: true,
+        message: 'Attendance records retrieved successfully',
+        data: attendance,
+    });
+});
+
+// @desc Get attendance by id
+// @route GET /api/admin/getAttendanceById/:id
+// @access Private (Admin)
+export const getAttendanceById = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const attendance = await Attendance.findById(id)
+        .populate({
+            path: 'class',
+            select: 'class_name section room_number',
+        })
+        .populate({
+            path: 'subject',
+            select: 'name code',
+        })
+        .populate({
+            path: 'teacher',
+            select: 'name email teacherId',
+        })
+        .lean();
+
+    if (!attendance) {
+        res.status(404);
+        throw new Error('Attendance record not found');
+    }
+
+    res.status(200).json({
+        success: true,
+        message: 'Attendance record retrieved successfully',
+        data: attendance,
+    });
+});
+
+// @desc    Update specific student attendance
+// @route   PUT /api/admin/updateAttendanceById/:id
+// @access  Private (Admin)
+export const updateAttendanceById = asyncHandler(async (req, res) => {
+
+    const { id } = req.params;
+
+    const { studentId, status, notes } = req.body;
+
+    // Validate input
+    if (!studentId || !status) {
+        res.status(400);
+        throw new Error('Student ID and status are required');
+    }
+
+    // Validate status
+    const validStatuses = ['present', 'absent', 'late'];
+
+    if (!validStatuses.includes(status)) {
+        res.status(400);
+        throw new Error('Invalid attendance status');
+    }
+
+    // Find attendance document
+    const attendance = await Attendance.findById(id);
+
+    if (!attendance) {
+        res.status(404);
+        throw new Error('Attendance record not found');
+    }
+
+    // Find student attendance record
+    const studentRecord = attendance.records.find(
+        record =>
+            record.student.toString() === studentId
+    );
+
+    if (!studentRecord) {
+        res.status(404);
+        throw new Error('Student attendance record not found');
+    }
+
+    // Update fields
+    studentRecord.status = status;
+
+    if (notes !== undefined) {
+        studentRecord.notes = notes;
+    }
+
+    await attendance.save();
+
+    res.status(200).json({
+        success: true,
+        message: 'Student attendance updated successfully',
+        data: attendance,
+    });
+});
+
+// @desc    Create exam
+// @route   POST /api/admin/createExam
+// @access  Private (Admin)
+export const createExam = asyncHandler(async (req, res) => {
+
+    const { title, subject, classId, teacher, grade, date, total_marks } = req.body;
+
+    // Validate required fields
+    if (!title || !subject || !classId || !teacher || grade === undefined || !date || !total_marks
+    ) {
+        res.status(400);
+        throw new Error('All fields are required');
+    }
+
+    // Validate total marks
+    if (isNaN(total_marks) || Number(total_marks) <= 0) {
+        res.status(400);
+        throw new Error('Total marks must be greater than 0');
+    }
+
+    // Validate grade
+    if (
+        isNaN(grade) ||
+        Number(grade) < 0
+    ) {
+        res.status(400);
+        throw new Error('Invalid grade value');
+    }
+
+    // Validate date
+    const parsedDate = new Date(date);
+
+    if (isNaN(parsedDate.getTime())) {
+        res.status(400);
+        throw new Error('Invalid exam date');
+    }
+
+    // Verify class exists
+    const classData = await Class.findById(classId);
+
+    if (!classData) {
+        res.status(404);
+        throw new Error('Class not found');
+    }
+
+    // Verify assignment
+    const assignment = await TeachingAssignment.findOne({
+        teacherId: teacher,
+        classId,
+        subjectId: subject,
+    });
+
+    if (!assignment) {
+        res.status(400);
+        throw new Error('Teacher is not assigned to this class and subject');
+    }
+
+    // Prevent duplicate exam
+    const startOfDay = new Date(parsedDate);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(parsedDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const existingExam = await Exam.findOne({
+        teacher,
+        classId,
+        subject,
+        date: {
+            $gte: startOfDay,
+            $lte: endOfDay,
+        },
+    });
+
+    if (existingExam) {
+        res.status(400);
+        throw new Error('Exam already exists');
+    }
+
+    const exam = await Exam.create({
+        title: title.trim(),
+        subject,
+        classId,
+        teacher,
+        date: parsedDate,
+        total_marks,
+        grade,
+    });
+
+    res.status(201).json({
+        success: true,
+        message: 'Exam created successfully',
+        data: exam,
+    });
+});
+
+// @desc    Get all exams
+// @route   GET /api/admin/getAllExams
+// @access  Private (Admin)
+export const getAllExams = asyncHandler(async (req, res) => {
+
+    const exams = await Exam.find()
+        .select('-records')
+        .populate({
+            path: 'classId',
+            select: 'class_name section room_number grade',
+        })
+        .populate({
+            path: 'subject',
+            select: 'name code',
+        })
+        .populate({
+            path: 'teacher',
+            select: 'name email teacherId',
+        })
+        .sort({ createdAt: -1 })
+        .lean();
+
+    if (exams.length === 0) {
+        res.status(404);
+        throw new Error('No exams found');
+    }
+
+    res.status(200).json({
+        success: true,
+        results: exams.length,
+        message: 'Exams retrieved successfully',
+        data: exams,
+    });
+});
+
+// @desc    Get exam by ID
+// @route   GET /api/admin/getExamById/:id
+// @access  Private (Admin)
+export const getExamById = asyncHandler(async (req, res) => {
+
+    const { id } = req.params;
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        res.status(400);
+        throw new Error('Invalid exam ID');
+    }
+
+    const exam = await Exam.findById(id)
+        .populate({
+            path: 'classId',
+            select: 'class_name section room_number grade',
+        })
+        .populate({
+            path: 'subject',
+            select: 'name code',
+        })
+        .populate({
+            path: 'teacher',
+            select: 'name email teacherId',
+        })
+        .populate({
+            path: 'records.student',
+            select: 'name studentId email',
+        })
+        .lean();
+
+    if (!exam) {
+        res.status(404);
+        throw new Error('Exam not found');
+    }
+
+    res.status(200).json({
+        success: true,
+        message: 'Exam retrieved successfully',
+        data: exam,
+    });
+});
+
+//@desc     Update exam by ID
+//@route     PUT /api/admin/updateExam/:id
+//@access    Private (Admin)
+export const updateExam = asyncHandler(async (req, res) => {
+
+    const { id } = req.params;
+
+    const { title, subject, classId, teacher, date, total_marks, grade } = req.body;
+
+    if (title === undefined && subject === undefined && classId === undefined && teacher === undefined && date === undefined && total_marks === undefined && grade === undefined) {
+        res.status(400);
+        throw new Error('At least one field is required to update');
+    }
+
+    const exam = await Exam.findById(id);
+
+    if (!exam) {
+        res.status(404);
+        throw new Error('Exam not found');
+    }
+
+    if (total_marks !== undefined && (isNaN(total_marks) || Number(total_marks) <= 0)) {
+        res.status(400);
+        throw new Error('Total marks must be greater than 0');
+    }
+
+    if (grade !== undefined && (isNaN(grade) || Number(grade) < 0)) {
+        res.status(400);
+        throw new Error('Invalid grade value');
+    }
+
+    let parsedDate;
+
+    if (date !== undefined) {
+        parsedDate = new Date(date);
+        if (isNaN(parsedDate.getTime())) {
+            res.status(400);
+            throw new Error('Invalid exam date');
+        }
+    }
+
+    if (title !== undefined)
+        exam.title = title.trim();
+
+    if (subject !== undefined)
+        exam.subject = subject;
+
+    if (classId !== undefined)
+        exam.classId = classId;
+
+    if (teacher !== undefined)
+        exam.teacher = teacher;
+
+    if (parsedDate)
+        exam.date = parsedDate;
+
+    if (total_marks !== undefined)
+        exam.total_marks = total_marks;
+
+    if (grade !== undefined)
+        exam.grade = grade;
+
+    await exam.save();
+
+    res.status(200).json({
+        success: true,
+        message: 'Exam updated successfully',
+        data: exam,
+    });
+});
+
+// @desc    Delete exam by ID
+// @route   DELETE /api/admin/deleteExam/:id
+// @access  Private (Admin)
+export const deleteExam = asyncHandler(async (req, res) => {
+
+    const { id } = req.params;
+
+    const exam = await Exam.findById(id);
+
+    if (!exam) {
+        res.status(404);
+        throw new Error('Exam not found');
+    }
+
+    // Optional business rule
+    if (exam.records && exam.records.length > 0) {
+        res.status(400);
+        throw new Error(
+            'Cannot delete exam with uploaded records'
+        );
+    }
+
+    await exam.deleteOne();
+
+    res.status(200).json({
+        success: true,
+        message: 'Exam deleted successfully',
+    });
+});
+
+
+// TODO: Add attendance percentage rate for teachers, students and classes.

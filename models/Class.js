@@ -22,6 +22,10 @@ const classSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    grade: {
+        type: String,
+        required: true
+    },
     isActive: {
         type: Boolean,
         default: true,

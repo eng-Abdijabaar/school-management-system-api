@@ -333,4 +333,155 @@ export const updateAttendance = asyncHandler(async (req, res) => {
     });
 });
 
-// @desc   
+// @desc    Get teacher exams
+// @route   GET /api/teacher/get-teacher-exams
+// @access  Private (Teacher)
+export const getTeacherExams = asyncHandler(async (req, res) => {
+    const exams = await Exam.find({ teacher: req.user._id })
+        .populate({
+            path: 'class',
+            select: 'class_name section grade room_number'
+        })
+        .populate({
+            path: 'subject',
+            select: 'name code section isActive'
+        })
+        .populate({
+            path: 'teacher',
+            select: 'name phone teacherId profile_img isActive'
+        })
+    if(!exams || exams.length === 0) {
+        res.status(404);
+        throw new Error('Exams not found');
+    }
+
+    res.status(200).json({
+        success: true,
+        data: exams,
+    });
+});
+
+// @desc    Get exam by ID
+// @route   GET /api/teacher/get-exam/:id
+// @access  Private (Teacher)
+export const getExamById = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const exam = await Exam.findById(id)
+        .populate({
+            path: 'class',
+            select: 'class_name section students grade room_number isActive '
+        })
+        .populate({
+            path: 'subject',
+            select: 'name code section isActive'
+        })
+        .populate({
+            path: 'teacher',
+            select: 'name phone teacherId profile_img isActive'
+        });
+    if(!exam) {
+        res.status(404);
+        throw new Error('Exam not found');
+    }
+    res.status(200).json({
+        success: true,
+        data: exam,
+    });
+});
+
+// @desc    Upload exam
+// @route   POST /api/teacher/upload-exam/:id
+// @access  Private (Teacher)
+export const uploadExam = asyncHandler(async (req, res) => {
+
+    const { id } = req.params;
+
+    const { records } = req.body;
+
+    const exam = await Exam.findById(id);
+
+    if (!exam) {
+        res.status(404);
+        throw new Error('Exam not found');
+    }
+
+    // Prevent re-upload
+    if (exam.records && exam.records.length > 0) {
+        res.status(400);
+        throw new Error('Exam is already uploaded');
+    }
+
+    // Validate records
+    if (
+        !Array.isArray(records) ||
+        records.length === 0
+    ) {
+        res.status(400);
+        throw new Error(
+            'Records must be a non-empty array'
+        );
+    }
+
+    const uniqueStudents = new Set();
+
+    for (const record of records) {
+
+        // Validate required fields
+        if (
+            !record.student ||
+            record.marks_obtained === undefined
+        ) {
+            res.status(400);
+            throw new Error(
+                'Each record must have student and marks_obtained'
+            );
+        }
+
+        // Validate numeric marks
+        if (
+            isNaN(record.marks_obtained)
+        ) {
+            res.status(400);
+            throw new Error(
+                'Marks obtained must be a number'
+            );
+        }
+
+        // Validate marks range
+        if (
+            record.marks_obtained < 0 ||
+            record.marks_obtained > exam.total_marks
+        ) {
+            res.status(400);
+            throw new Error(
+                `Marks must be between 0 and ${exam.total_marks}`
+            );
+        }
+
+        // Prevent duplicate students
+        if (
+            uniqueStudents.has(
+                record.student.toString()
+            )
+        ) {
+            res.status(400);
+            throw new Error(
+                'Duplicate student records found'
+            );
+        }
+
+        uniqueStudents.add(
+            record.student.toString()
+        );
+    }
+
+    exam.records = records;
+
+    await exam.save();
+
+    res.status(200).json({
+        success: true,
+        message: 'Exam uploaded successfully',
+        data: exam,
+    });
+});
