@@ -485,3 +485,6 @@ export const uploadExam = asyncHandler(async (req, res) => {
         data: exam,
     });
 });
+
+
+// Note: add endpoint for asking salary
