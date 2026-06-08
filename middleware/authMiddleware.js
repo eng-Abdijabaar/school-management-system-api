@@ -15,7 +15,7 @@ export const adminAuthMiddleware = asyncHandler(async (req, res, next) => {
 
             req.user = await User.findById(decoded.id).select('-password');
             
-            if (!req.user.isAdmin && !req.user.isVerified && !req.user.isActive) {
+            if (!req.user.isAdmin || !req.user.isVerified || !req.user.isActive) {
                 res.status(403);
                 throw new Error('Not authorized, access denied');
             }
