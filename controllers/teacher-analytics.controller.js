@@ -1,5 +1,5 @@
 import asyncHandler from "express-async-handler";
-import TeachingAssignments from "../models/TeachingAssignments";
+import TeachingAssignments from "../models/TeachingAssignments.js";
 import Class from "../models/Class.js";
 import Attendance from "../models/Attendance.js";
 import Exam from "../models/Exam.js";

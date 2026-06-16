@@ -4,6 +4,8 @@ import TeachingAssignments from '../models/TeachingAssignments.js';
 import Class from '../models/Class.js';
 import Subject from '../models/Subject.js';
 import Attendance from '../models/Attendance.js';
+import Exam from '../models/Exam.js';
+
 
 // @desc    Get all teacher classes
 // @route   GET /api/teacher/getClasses
@@ -142,7 +144,7 @@ export const getClass = asyncHandler(async (req, res) => {
 });
 
 // @desc    Setup attendance
-// @route   GET /api/teacher/setup-attendance:id
+// @route   GET /api/teacher/setup-attendance/:id
 // @access  Private (Teacher)
 export const setupAttendance = asyncHandler(async (req, res) => {
 

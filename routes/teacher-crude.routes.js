@@ -1,23 +1,41 @@
 import express from 'express';
-import { 
-    createAttendance,
-    getClass,
-    getClasses, 
-    getSubjects, 
-    setupAttendance, 
-    updateAttendance
-} from '../controllers/teacher-crude.controller.js';
 import { teacherAuthMiddleware } from '../middleware/authMiddleware.js';
+import {
+    getClasses,
+    getSubjects,
+    getClass,
+    setupAttendance,
+    createAttendance,
+    updateAttendance,
+    getTeacherExams,
+    getExamById,
+    uploadExam
+} from '../controllers/teacher-crude.controller.js';
 
 const router = express.Router();
 
-router.get('/getClasses', teacherAuthMiddleware, getClasses);
-router.get('/getClassById/:id', teacherAuthMiddleware, getClass);
-router.get('/getSubjects', teacherAuthMiddleware, getSubjects);
-router.get('/setupAttendance', teacherAuthMiddleware, setupAttendance);
-router.post('/create-attendance', teacherAuthMiddleware, createAttendance);
-router.put('/update-attendance/:id', teacherAuthMiddleware, updateAttendance);
+// Apply the Teacher authentication middleware to protect all routes below
+router.use(teacherAuthMiddleware);
+
+// ==========================================
+// CLASS & SUBJECT ACQUISITION ROUTES
+// ==========================================
+router.get('/getClasses', getClasses);
+router.get('/getSubjects', getSubjects);
+router.get('/getClass/:id', getClass);
+
+// ==========================================
+// ATTENDANCE MANAGEMENT ROUTES
+// ==========================================
+router.get('/setup-attendance/:id', setupAttendance);
+router.post('/create-attendance', createAttendance);
+router.put('/update-attendance/:id', updateAttendance);
+
+// ==========================================
+// EXAM MANAGEMENT ROUTES
+// ==========================================
+router.get('/get-teacher-exams', getTeacherExams);
+router.get('/get-exam/:id', getExamById);
+router.post('/upload-exam/:id', uploadExam);
 
 export default router;
-
-// http://localhost:5000/api/teacher/ , this is the base url for all teacher routes, so for example to create a attendance, the full url will be http://localhost:5000/api/teacher/create-attendance

@@ -34,6 +34,11 @@ const studentSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    currentClass: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Class",
+        default: null,
+    },
     profile_img: {
         public_id: String,
         url: String

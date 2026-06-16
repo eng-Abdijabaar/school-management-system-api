@@ -5,6 +5,8 @@ import TeachingAssignment from "../models/TeachingAssignments.js";
 import Class from "../models/Class.js";
 import Subject from "../models/Subject.js";
 import Exam from "../models/Exam.js";
+import Attendance from "../models/Attendance.js";
+import mongoose from "mongoose";
 
 // @desc    Create a new teacher
 // @route   POST /api/admin/createTeacher
@@ -137,12 +139,12 @@ export const getInactiveTeachers = asyncHandler(async (req, res) => {
 // @route   POST /api/admin/createStudent
 // @access  Private (Admin)
 export const createStudent = asyncHandler(async (req, res) => {
-    const { name, email, phone, parent_number, section, password } = req.body;
+    const { name, email, phone, parent_number, section, grade, password } = req.body;
 
     // Validate input email is not required for student but other fields are required
-    if (!name || !phone || !parent_number || !section || !password) {
+    if (!name || !phone || !parent_number || !section || !grade || !password) {
         res.status(400);
-        throw new Error("Name, phone, parent number, section, and password are required");
+        throw new Error("Name, phone, parent number, section, grade, and password are required");
     }
 
     // Check if student already exists
@@ -157,6 +159,7 @@ export const createStudent = asyncHandler(async (req, res) => {
         phone,
         parent_number,
         section,
+        grade,
         password,
     });
 
@@ -173,7 +176,8 @@ export const createStudent = asyncHandler(async (req, res) => {
             studentId: student.studentId,
             phone: student.phone,
             parent_number: student.parent_number,
-            section,
+            section: student.section,
+            grade: student.grade,
             isActive: student.isActive,
         }
     });
@@ -244,13 +248,14 @@ export const updateStudent = asyncHandler(async (req, res) => {
         return res.status(404).json({ message: "Student not found" });
     }
 
-    const { name, email, phone, parent_number, section, profile_img, documents, isActive, password } = req.body;
+    const { name, email, phone, parent_number, section, profile_img, documents, isActive, password , grade} = req.body;
 
     if (name) student.name = name;
     if (email) student.email = email;
     if (phone) student.phone = phone;
     if (parent_number) student.parent_number = parent_number;
     if (section) student.section = section;
+    if (grade) student.grade = grade;
     if (profile_img) student.profile_img = profile_img;
     if (documents) student.documents = documents;
     if (isActive !== undefined) student.isActive = isActive;
@@ -464,7 +469,9 @@ export const getClassesBySection = asyncHandler(async (req, res) => {
 // @desc Remove student from a class
 // @route put /api/admin/removeStudent/:id
 // @access Private (Admin)
-export const removeStudent = asyncHandler(async (req, res) => { });
+export const removeStudent = asyncHandler(async (req, res) => { 
+
+});
 
 // @desc Create a new subject
 // @route POST /api/admin/createSubject
@@ -533,7 +540,9 @@ export const deleteSubject = asyncHandler(async (req, res) => {
 // @access Private (Admin)
 export const getSubjectById = asyncHandler(async (req, res) => {
     const { id } = req.params;
+
     const subject = await Subject.findById(id);
+
     if (!subject) {
         res.status(404);
         throw new Error("Subject not found");
@@ -543,25 +552,35 @@ export const getSubjectById = asyncHandler(async (req, res) => {
         .populate({
             path: "classId",
             match: { isActive: true },
-            select: "name isActive"
+            select: "_id name isActive"
         })
         .populate({
             path: "teacherId",
-            select: "name"
+            select: "_id name isActive"
         });
 
-    const validAssignments = assignments.filter(a => a.classId !== null);
     const classesMap = new Map();
-    validAssignments.forEach(a => {
-        classesMap.set(a.classId._id.toString(), a.classId);
-    });
-    const classes = Array.from(classesMap.values());
-
     const teachersMap = new Map();
-    validAssignments.forEach(a => {
-        teachersMap.set(a.teacherId._id.toString(), a.teacherId);
-    });
 
+    for (const a of assignments) {
+        // safely handle class
+        if (a.classId && a.classId._id) {
+            classesMap.set(
+                a.classId._id.toString(),
+                a.classId
+            );
+        }
+
+        // safely handle teacher
+        if (a.teacherId && a.teacherId._id) {
+            teachersMap.set(
+                a.teacherId._id.toString(),
+                a.teacherId
+            );
+        }
+    }
+
+    const classes = Array.from(classesMap.values());
     const teachers = Array.from(teachersMap.values());
 
     res.json({
@@ -1070,10 +1089,7 @@ export const getAllExams = asyncHandler(async (req, res) => {
         .sort({ createdAt: -1 })
         .lean();
 
-    if (exams.length === 0) {
-        res.status(404);
-        throw new Error('No exams found');
-    }
+
 
     res.status(200).json({
         success: true,
@@ -1227,6 +1243,188 @@ export const deleteExam = asyncHandler(async (req, res) => {
         message: 'Exam deleted successfully',
     });
 });
+
+export const getAssignments = asyncHandler(async (req, res) => {
+
+    const assignments = await TeachingAssignment.find()
+        .populate({
+            path: 'teacherId',
+            select: 'name email teacherId',
+        })
+        .populate({
+            path: 'classId',
+            select: 'class_name section room_number grade',
+        })
+        .populate({
+            path: 'subjectId',
+            select: 'name code',
+        })
+        .lean();
+
+    res.status(200).json({
+        success: true,
+        message: 'Assignments retrieved successfully',
+        data: assignments,
+    });
+});
+
+export const createAssignment = asyncHandler(async (req, res) => {
+
+    const { teacherId, classId, subjectId } = req.body;
+
+    if (!teacherId || !classId || !subjectId) {
+        res.status(400);
+        throw new Error('Teacher ID, class ID, and subject ID are required');
+    }
+
+    const teacher = await Teacher.findById(teacherId);
+    if (!teacher) {
+        res.status(404);
+        throw new Error('Teacher not found');
+    }
+
+    const classData = await Class.findById(classId);
+    if (!classData) {
+        res.status(404);
+        throw new Error('Class not found');
+    }
+
+    const subject = await Subject.findById(subjectId);
+    if (!subject) {
+        res.status(404);
+        throw new Error('Subject not found');
+    }
+
+    const existingAssignment = await TeachingAssignment.findOne({
+        teacherId,
+        classId,
+        subjectId,
+    });
+
+    if (existingAssignment) {
+        res.status(400);
+        throw new Error('Assignment already exists');
+    }
+
+    const assignment = await TeachingAssignment.create({
+        teacherId,
+        classId,
+        subjectId,
+    });
+
+    res.status(201).json({
+        success: true,
+        message: 'Assignment created successfully',
+        data: assignment,
+    });
+});
+
+export const deleteAssignment = asyncHandler(async (req, res) => {
+
+    const { id } = req.params;
+    const assignment = await TeachingAssignment.findById(id);
+
+    if (!assignment) {
+        res.status(404);
+        throw new Error('Assignment not found');
+    }
+
+    await assignment.deleteOne();
+
+    res.status(200).json({
+        success: true,
+        message: 'Assignment deleted successfully',
+    });
+});
+
+export const assignStudentToClass = asyncHandler(async (req, res) => {
+
+    const { studentIds, classId } = req.body;
+
+    // Validation
+    if (
+        !studentIds ||
+        !Array.isArray(studentIds) ||
+        studentIds.length === 0 ||
+        !classId
+    ) {
+        res.status(400);
+        throw new Error(
+            "Student IDs and class ID are required"
+        );
+    }
+
+    // Check class
+    const classData = await Class.findById(classId);
+
+    if (!classData || !classData.isActive) {
+        res.status(404);
+        throw new Error("Class not found");
+    }
+
+    // Check students exist
+    const students = await Student.find({
+        _id: { $in: studentIds },
+        isActive: true,
+    });
+
+    if (students.length !== studentIds.length) {
+        res.status(404);
+        throw new Error(
+            "One or more students were not found"
+        );
+    }
+
+    // Check if any student already assigned
+    const assignedStudents = students.filter(
+        student => student.currentClass
+    );
+
+    if (assignedStudents.length > 0) {
+        res.status(400);
+        throw new Error(
+            `${assignedStudents.length} student(s) are already assigned to a class`
+        );
+    }
+
+    // Update students
+    await Student.updateMany(
+        {
+            _id: { $in: studentIds }
+        },
+        {
+            $set: {
+                currentClass: classId
+            }
+        }
+    );
+
+    // Update class
+    await Class.findByIdAndUpdate(
+        classId,
+        {
+            $addToSet: {
+                students: {
+                    $each: studentIds
+                }
+            }
+        },
+        {
+            new: true
+        }
+    );
+
+    res.status(200).json({
+        success: true,
+        message: "Students assigned successfully",
+        data: {
+            classId,
+            assignedStudents: studentIds.length
+        }
+    });
+
+});
+
 
 
 // TODO: Add attendance percentage rate for teachers, students and classes.
