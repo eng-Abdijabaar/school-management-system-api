@@ -19,11 +19,9 @@ const userSchema = new mongoose.Schema({
     },
     profile_img: {
         type: String,
-        required: true,
     },
     documents: {
         type: [String],
-        required: true,
     },
     salary: {
         type: Number,

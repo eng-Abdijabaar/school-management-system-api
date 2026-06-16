@@ -1,11 +1,11 @@
-import assyncHandler from 'express-async-handler';
-import Student from '../models/Student';
-import generateToken from '../utils/generateToken';
+import asyncHandler from 'express-async-handler';
+import Student from '../models/Student.js';
+import generateToken from '../utils/generateToken.js';
 
 // @desc    Login student
 // @route   POST /api/students/login
 // @access  Public
-export const loginStudent = assyncHandler(async (req, res) => {
+export const loginStudent = asyncHandler(async (req, res) => {
     const { studentID, password } = req.body;
     
     // check the input data
@@ -29,7 +29,7 @@ export const loginStudent = assyncHandler(async (req, res) => {
         throw new Error('Invalid student ID or password');
     }
 
-    const accessToken = generateToken(res, student.studentId)
+    const accessToken = generateToken(res, student._id)
 
     res.status(200).json({
         success: true,
@@ -60,7 +60,7 @@ export const refreshAccessToken = asyncHandler(async (req, res) => {
 
     // Generate new access token
     const accessToken = jwt.sign(
-        { id: student.studentID },
+        { id: student._id },
         process.env.ACCESS_TOKEN_SECRET,
         { expiresIn: '15m' }
     );
@@ -69,4 +69,20 @@ export const refreshAccessToken = asyncHandler(async (req, res) => {
         success: true,
         accessToken,
     });
+});
+
+// @desc    Logout student
+// @route   POST /api/students/logout
+// @access  Private
+export const logout = asyncHandler(async (req, res) => {
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+  });
+
+  res.status(200).json({
+    success: true,
+    message: 'Logged out successfully',
+  });
 });
